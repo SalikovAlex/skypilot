@@ -22,7 +22,8 @@ import pytest
 # --managed-jobs.
 all_clouds_in_smoke_tests = [
     'aws', 'gcp', 'azure', 'lambda', 'cloudflare', 'ibm', 'scp', 'oci', 'do',
-    'kubernetes', 'vsphere', 'cudo', 'fluidstack', 'paperspace', 'runpod'
+    'kubernetes', 'vsphere', 'cudo', 'fluidstack', 'paperspace', 'runpod',
+    'nebius'
 ]
 default_clouds_to_run = ['aws', 'azure']
 
@@ -44,7 +45,8 @@ cloud_to_pytest_keyword = {
     'cudo': 'cudo',
     'paperspace': 'paperspace',
     'do': 'do',
-    'runpod': 'runpod'
+    'runpod': 'runpod',
+    'nebius': 'nebius'
 }
 
 
@@ -121,12 +123,6 @@ def _get_cloud_to_run(config) -> List[str]:
 
 
 def pytest_collection_modifyitems(config, items):
-    if config.option.collectonly:
-        for item in items:
-            full_name = item.nodeid
-            marks = [mark.name for mark in item.iter_markers()]
-            print(f"Collected {full_name} with marks: {marks}")
-
     skip_marks = {}
     skip_marks['slow'] = pytest.mark.skip(reason='need --runslow option to run')
     skip_marks['managed_jobs'] = pytest.mark.skip(
