@@ -337,7 +337,7 @@ def test_skyserve_dynamic_ondemand_fallback():
 # TODO: fluidstack does not support `--cpus 2`, but the check for services in this test is based on CPUs
 @pytest.mark.no_fluidstack
 @pytest.mark.no_do  # DO does not support `--cpus 2`
-@pytest.mark.no_nebius  # Nebius does not support open ports
+@pytest.mark.no_nebius  # Nebius does not support autodown
 @pytest.mark.serve
 def test_skyserve_user_bug_restart(generic_cloud: str):
     """Tests that we restart the service after user bug."""
@@ -438,7 +438,7 @@ def test_skyserve_auto_restart():
 
 
 @pytest.mark.serve
-@pytest.mark.no_nebius  # Nebius doesn't support open ports
+@pytest.mark.no_nebius  # Nebius does not support autodown
 def test_skyserve_cancel(generic_cloud: str):
     """Test skyserve with cancel"""
     name = _get_service_name()
