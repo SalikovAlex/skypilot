@@ -43,6 +43,7 @@ from sky.utils import common_utils
 # when the controller being on Azure, which takes a long time for launching
 # step.
 @pytest.mark.managed_jobs
+@pytest.mark.no_nebius  # Autodown and Autostop not supported.
 def test_managed_jobs(generic_cloud: str):
     """Test the managed jobs yaml."""
     name = smoke_tests_utils.get_cluster_name()
@@ -660,6 +661,7 @@ def test_managed_jobs_cancellation_gcp():
 
 
 @pytest.mark.managed_jobs
+@pytest.mark.no_nebius  # Autodown and Autostop not supported.
 def test_managed_jobs_retry_logs():
     """Test managed job retry logs are properly displayed when a task fails."""
     name = smoke_tests_utils.get_cluster_name()
@@ -877,6 +879,7 @@ def test_managed_jobs_tpu():
 
 # ---------- Testing env for managed jobs ----------
 @pytest.mark.managed_jobs
+@pytest.mark.no_nebius  # Autodown and Autostop not supported.
 def test_managed_jobs_inline_env(generic_cloud: str):
     """Test managed jobs env"""
     name = smoke_tests_utils.get_cluster_name()
@@ -906,6 +909,7 @@ def test_managed_jobs_inline_env(generic_cloud: str):
 
 
 @pytest.mark.managed_jobs
+@pytest.mark.no_nebius  # Autodown and Autostop not supported.
 def test_managed_jobs_logs_sync_down():
     name = smoke_tests_utils.get_cluster_name()
     test = smoke_tests_utils.Test(
