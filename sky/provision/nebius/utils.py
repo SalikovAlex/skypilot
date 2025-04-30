@@ -44,7 +44,8 @@ def get_project_by_region(region: str) -> str:
     # Project id looks like project-e00xxxxxxxxxxxxxx where
     # e00 - id of region 'eu-north1'
     # e01 - id of region 'eu-west1'
-    region_ids = {'eu-north1': 'e00', 'eu-west1': 'e01'}
+    # u00 - id of region 'us-central1'
+    region_ids = {'eu-north1': 'e00', 'eu-west1': 'e01', 'us-central1': 'u00'}
     # TODO(SalikovAlex): fix when info about region will be in projects list
     # Currently, Nebius cloud supports 2 regions. We manually enumerate
     # them here. Reference: https://docs.nebius.com/overview/regions
@@ -85,6 +86,8 @@ def get_or_create_gpu_cluster(name: str, region: str) -> str:
             fabric = 'fabric-4'
         elif region == 'eu-west1':
             fabric = 'fabric-5'
+        elif region == 'us-central1':
+            fabric = 'us-central1-a'
         else:
             raise RuntimeError(
                 f'Unsupported region {region}.') from no_cluster_found_error
