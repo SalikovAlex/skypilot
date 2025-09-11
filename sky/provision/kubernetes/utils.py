@@ -1281,7 +1281,6 @@ AUTOSCALER_TYPE_TO_AUTOSCALER = {
     kubernetes_enums.KubernetesAutoscalerType.GKE: GKEAutoscaler,
     kubernetes_enums.KubernetesAutoscalerType.KARPENTER: KarpenterAutoscaler,
     kubernetes_enums.KubernetesAutoscalerType.COREWEAVE: CoreweaveAutoscaler,
-    kubernetes_enums.KubernetesAutoscalerType.NEBIUS: NebiusAutoscaler,
     kubernetes_enums.KubernetesAutoscalerType.GENERIC: GenericAutoscaler,
 }
 

@@ -31,6 +31,7 @@ class KubernetesAutoscalerType(enum.Enum):
     KARPENTER = 'karpenter'
     COREWEAVE = 'coreweave'
     NEBIUS = 'nebius'
+    NVIDIA = 'nvidia'
     GENERIC = 'generic'
 
     def emits_autoscale_event(self) -> bool:
