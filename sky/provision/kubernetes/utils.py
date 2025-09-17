@@ -1259,9 +1259,8 @@ class CoreweaveAutoscaler(Autoscaler):
     label_formatter: Any = CoreWeaveLabelFormatter
     can_query_backend: bool = False
 
-
-class NebiusAutoscaler(Autoscaler):
-    """Nebius autoscaler.
+class NvidiaAutoscaler(Autoscaler):
+    """Generic autoscaler for clusters using Nvidia GFD
     """
 
     label_formatter: Any = NebiusLabelFormatter
@@ -1281,6 +1280,7 @@ AUTOSCALER_TYPE_TO_AUTOSCALER = {
     kubernetes_enums.KubernetesAutoscalerType.GKE: GKEAutoscaler,
     kubernetes_enums.KubernetesAutoscalerType.KARPENTER: KarpenterAutoscaler,
     kubernetes_enums.KubernetesAutoscalerType.COREWEAVE: CoreweaveAutoscaler,
+    kubernetes_enums.KubernetesAutoscalerType.NVIDIA: NvidiaAutoscaler,
     kubernetes_enums.KubernetesAutoscalerType.GENERIC: GenericAutoscaler,
 }
 
