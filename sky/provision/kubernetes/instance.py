@@ -535,13 +535,12 @@ def _wait_for_pods_to_schedule(namespace, context, new_nodes, timeout: int,
     while _evaluate_timeout():
         # Get all pods in a single API call using the cluster name label
         # which all pods in new_nodes should share
-        cluster_name_on_cloud = new_nodes[0].metadata.labels[
-            constants.TAG_SKYPILOT_CLUSTER_NAME]
+        cluster_name = new_nodes[0].metadata.labels[
+            k8s_constants.TAG_SKYPILOT_CLUSTER_NAME]
         pods = kubernetes.core_api(context).list_namespaced_pod(
             namespace,
             label_selector=
-            f'{constants.TAG_SKYPILOT_CLUSTER_NAME}={cluster_name_on_cloud}'
-        ).items
+            f'{k8s_constants.TAG_SKYPILOT_CLUSTER_NAME}={cluster_name}').items
 
         # Get the set of found pod names and check if we have all expected pods
         found_pod_names = {pod.metadata.name for pod in pods}
@@ -565,34 +564,6 @@ def _wait_for_pods_to_schedule(namespace, context, new_nodes, timeout: int,
 
         if all_scheduled:
             return
-
-        # Check if cluster is autoscaling and update spinner message.
-        # Minor optimization to not query k8s api after autoscaling
-        # event was detected. This is useful because there isn't any
-        # autoscaling complete event.
-        if autoscaler_is_set and not is_autoscaling:
-            if use_heuristic_detection:
-                is_autoscaling = _cluster_maybe_autoscaling(
-                    namespace, context, create_pods_start)
-                msg = 'Kubernetes cluster may be scaling up'
-            else:
-                is_autoscaling = _cluster_had_autoscale_event(
-                    namespace, context, create_pods_start)
-                msg = 'Kubernetes cluster is autoscaling'
-
-            if is_autoscaling:
-                rich_utils.force_update_status(
-                    ux_utils.spinner_message(f'Launching ({msg})',
-                                             cluster_name=cluster_name))
-        if not is_autoscaling:
-            _update_spinner_message(iteration=iteration,
-                                    pods=pods,
-                                    context=context,
-                                    namespace=namespace,
-                                    cluster_name_on_cloud=cluster_name_on_cloud,
-                                    cluster_name=cluster_name)
-
-        iteration += 1
         time.sleep(1)
 
     # Handle pod scheduling errors
