@@ -7,6 +7,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 from sky import catalog
 from sky import clouds
 from sky import exceptions
+from sky import sky_logging
 from sky import skypilot_config
 from sky.adaptors import nebius
 from sky.provision.nebius import constants as nebius_constants
@@ -19,6 +20,14 @@ if typing.TYPE_CHECKING:
     from sky.utils import volume as volume_lib
 
 _INDENT_PREFIX = '    '
+
+_BEST_DISK_TIER = resources_utils.DiskTier.HIGH
+_DEFAULT_DISK_TIER = resources_utils.DiskTier.MEDIUM
+# Nebius does not support ultra disk tier.
+_SUPPORTED_DISK_TIERS = (set(resources_utils.DiskTier) -
+                         {resources_utils.DiskTier.ULTRA})
+
+logger = sky_logging.init_logger(__name__)
 
 
 def nebius_profile_in_aws_cred_and_config() -> bool:
@@ -54,8 +63,6 @@ class Nebius(clouds.Cloud):
             ('Autodown not supported. Can\'t delete OS disk.'),
         clouds.CloudImplementationFeatures.CLONE_DISK_FROM_CLUSTER:
             (f'Migrating disk is currently not supported on {_REPR}.'),
-        clouds.CloudImplementationFeatures.CUSTOM_DISK_TIER:
-            (f'Custom disk tier is currently not supported on {_REPR}.'),
         clouds.CloudImplementationFeatures.CUSTOM_NETWORK_TIER:
             ('Custom network tier is currently only supported for '
              'H100:8 and H200:8 on Nebius.'),
@@ -252,12 +259,28 @@ class Nebius(clouds.Cloud):
                 'filesystem_id': fs['filesystem_id'],
                 'filesystem_attach_mode': fs.get('attach_mode', 'READ_WRITE'),
                 'filesystem_mount_path': fs.get(
-                    'mount_path', f'/mnt/filesystem-skypilot-{i+1}'),
-                'filesystem_mount_tag': f'filesystem-skypilot-{i+1}'
+                    'mount_path', f'/mnt/filesystem-skypilot-{i + 1}'),
+                'filesystem_mount_tag': f'filesystem-skypilot-{i + 1}'
             })
 
         use_static_ip_address = skypilot_config.get_nested(
             ('nebius', 'use_static_ip_address'), default_value=False)
+
+        def _get_disk_tier() -> resources_utils.DiskTier:
+            logger.debug(f'Getting disk tier for Nebius {resources.disk_tier}.')
+            if resources.disk_tier is None:
+                return _DEFAULT_DISK_TIER
+            else:
+                if resources.disk_tier == resources_utils.DiskTier.BEST:
+                    return _BEST_DISK_TIER
+                else:
+                    if not resources.disk_tier in _SUPPORTED_DISK_TIERS:
+                        logger.warning(
+                            f'Disk tier {resources.disk_tier} is not supported '
+                            'for Nebius. Falling back to default disk tier.')
+                        return _DEFAULT_DISK_TIER
+                    return resources.disk_tier
+
         resources_vars: Dict[str, Any] = {
             'instance_type': resources.instance_type,
             'custom_resources': custom_resources,
@@ -268,7 +291,8 @@ class Nebius(clouds.Cloud):
             'zones': None,
             'use_spot': resources.use_spot,
             'filesystems': resources_vars_fs,
-            'network_tier': resources.network_tier
+            'network_tier': resources.network_tier,
+            'disk_tier': _get_disk_tier(),
         }
 
         docker_run_options = []
@@ -374,10 +398,11 @@ class Nebius(clouds.Cloud):
             f'{_INDENT_PREFIX}  $ nebius iam get-access-token > {nebius.iam_token_path()} \n'  # pylint: disable=line-too-long
             f'{_INDENT_PREFIX} or generate  {nebius.credentials_path()} \n')
 
-        tenant_msg = (f'{_INDENT_PREFIX} Copy your tenant ID from the web console and save it to file \n'  # pylint: disable=line-too-long
-                      f'{_INDENT_PREFIX}  $ echo $NEBIUS_TENANT_ID_PATH > {nebius.tenant_id_path()} \n'  # pylint: disable=line-too-long
-                      f'{_INDENT_PREFIX} Or if you have 1 tenant you can run:\n'  # pylint: disable=line-too-long
-                      f'{_INDENT_PREFIX}  $ nebius --format json iam whoami|jq -r \'.user_profile.tenants[0].tenant_id\' > {nebius.tenant_id_path()} \n')  # pylint: disable=line-too-long
+        tenant_msg = (
+            f'{_INDENT_PREFIX} Copy your tenant ID from the web console and save it to file \n'  # pylint: disable=line-too-long
+            f'{_INDENT_PREFIX}  $ echo $NEBIUS_TENANT_ID_PATH > {nebius.tenant_id_path()} \n'  # pylint: disable=line-too-long
+            f'{_INDENT_PREFIX} Or if you have 1 tenant you can run:\n'  # pylint: disable=line-too-long
+            f'{_INDENT_PREFIX}  $ nebius --format json iam whoami|jq -r \'.user_profile.tenants[0].tenant_id\' > {nebius.tenant_id_path()} \n')  # pylint: disable=line-too-long
         if not nebius.is_token_or_cred_file_exist():
             return False, f'{token_cred_msg}'
         tenant_id = nebius.get_tenant_id()

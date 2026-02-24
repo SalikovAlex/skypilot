@@ -188,6 +188,7 @@ def launch(cluster_name_on_cloud: str,
            user_data: str,
            associate_public_ip_address: bool,
            filesystems: List[Dict[str, Any]],
+           disk_tier: resources_utils.DiskTier,
            use_static_ip_address: bool = False,
            use_spot: bool = False,
            network_tier: Optional[resources_utils.NetworkTier] = None) -> str:
@@ -232,6 +233,17 @@ def launch(cluster_name_on_cloud: str,
                 cluster_id = get_or_create_gpu_cluster(cluster_name_on_cloud,
                                                        project_id, fabric)
 
+    def _disk_tier_to_disk_type(disk_tier: resources_utils.DiskTier) -> Any:
+        tier2type = {
+            str(resources_utils.DiskTier.HIGH):
+                nebius.compute().DiskSpec.DiskType.NETWORK_SSD_IO_M3,
+            str(resources_utils.DiskTier.MEDIUM):
+                nebius.compute().DiskSpec.DiskType.NETWORK_SSD,
+            str(resources_utils.DiskTier.LOW):
+                nebius.compute().DiskSpec.DiskType.NETWORK_SSD_NON_REPLICATED,
+        }
+        return tier2type[str(disk_tier)]
+
     service = nebius.compute().DiskServiceClient(nebius.sdk())
     disk = nebius.sync_call(
         service.create(nebius.compute().CreateDiskRequest(
@@ -243,7 +255,7 @@ def launch(cluster_name_on_cloud: str,
                 source_image_family=nebius.compute().SourceImageFamily(
                     image_family=image_family),
                 size_gibibytes=disk_size,
-                type=nebius.compute().DiskSpec.DiskType.NETWORK_SSD,
+                type=_disk_tier_to_disk_type(disk_tier),
             ))))
     disk_id = disk.resource_id
     retry_count = 0
