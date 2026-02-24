@@ -14,18 +14,13 @@ from sky.provision.nebius import constants as nebius_constants
 from sky.utils import annotations
 from sky.utils import registry
 from sky.utils import resources_utils
+from sky.utils import ux_utils
 
 if typing.TYPE_CHECKING:
     from sky import resources as resources_lib
     from sky.utils import volume as volume_lib
 
 _INDENT_PREFIX = '    '
-
-_BEST_DISK_TIER = resources_utils.DiskTier.HIGH
-_DEFAULT_DISK_TIER = resources_utils.DiskTier.MEDIUM
-# Nebius does not support ultra disk tier.
-_SUPPORTED_DISK_TIERS = (set(resources_utils.DiskTier) -
-                         {resources_utils.DiskTier.ULTRA})
 
 logger = sky_logging.init_logger(__name__)
 
@@ -80,6 +75,12 @@ class Nebius(clouds.Cloud):
     # our provisioner adds additional `-worker`.
     _MAX_CLUSTER_NAME_LEN_LIMIT = 50
     _regions: List[clouds.Region] = []
+
+    _BEST_DISK_TIER = resources_utils.DiskTier.HIGH
+    _DEFAULT_DISK_TIER = resources_utils.DiskTier.MEDIUM
+    # Nebius does not support ultra disk tier.
+    _SUPPORTED_DISK_TIERS = (set(resources_utils.DiskTier) -
+                             {resources_utils.DiskTier.ULTRA})
 
     # Using the latest SkyPilot provisioner API to provision and check status.
     PROVISIONER_VERSION = clouds.ProvisionerVersion.SKYPILOT
@@ -157,6 +158,27 @@ class Nebius(clouds.Cloud):
         for r in regions:
             assert r.zones is None, r
             yield r.zones
+
+    @classmethod
+    def check_disk_tier(
+            cls, instance_type: Optional[str],
+            disk_tier: Optional[resources_utils.DiskTier]) -> Tuple[bool, str]:
+        del instance_type
+        if disk_tier is None or disk_tier == resources_utils.DiskTier.BEST:
+            return True, ''
+        if disk_tier == resources_utils.DiskTier.ULTRA:
+            return False, (
+                'Nebius disk_tier=ultra is not supported now. '
+                'Please use disk_tier={low, medium, high, best} instead.')
+        return True, ''
+
+    @classmethod
+    def check_disk_tier_enabled(cls, instance_type: Optional[str],
+                                disk_tier: resources_utils.DiskTier) -> None:
+        ok, msg = cls.check_disk_tier(instance_type, disk_tier)
+        if not ok:
+            with ux_utils.print_exception_no_traceback():
+                raise exceptions.NotSupportedError(msg)
 
     def instance_type_to_hourly_cost(self,
                                      instance_type: str,
@@ -268,17 +290,7 @@ class Nebius(clouds.Cloud):
 
         def _get_disk_tier() -> resources_utils.DiskTier:
             logger.debug(f'Getting disk tier for Nebius {resources.disk_tier}.')
-            disk_tier = resources.disk_tier
-            if disk_tier is None:
-                return _DEFAULT_DISK_TIER
-            if disk_tier == resources_utils.DiskTier.BEST:
-                return _BEST_DISK_TIER
-            if disk_tier not in _SUPPORTED_DISK_TIERS:
-                logger.warning(
-                    f'Disk tier {disk_tier} is not supported for Nebius. '
-                    'Falling back to default disk tier.')
-                return _DEFAULT_DISK_TIER
-            return disk_tier
+            return Nebius._translate_disk_tier(resources.disk_tier)
 
         resources_vars: Dict[str, Any] = {
             'instance_type': resources.instance_type,
@@ -334,7 +346,10 @@ class Nebius(clouds.Cloud):
         """Returns a list of feasible resources for the given resources."""
         if resources.instance_type is not None:
             assert resources.is_launchable(), resources
-            resources = resources.copy(accelerators=None)
+            ok, _ = Nebius.check_disk_tier(resources.instance_type,
+                                           resources.disk_tier)
+            if not ok:
+                return resources_utils.FeasibleResources([], [], None)
             return resources_utils.FeasibleResources([resources], [], None)
 
         def _make(instance_list):
