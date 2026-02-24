@@ -268,18 +268,17 @@ class Nebius(clouds.Cloud):
 
         def _get_disk_tier() -> resources_utils.DiskTier:
             logger.debug(f'Getting disk tier for Nebius {resources.disk_tier}.')
-            if resources.disk_tier is None:
+            disk_tier = resources.disk_tier
+            if disk_tier is None:
                 return _DEFAULT_DISK_TIER
-            else:
-                if resources.disk_tier == resources_utils.DiskTier.BEST:
-                    return _BEST_DISK_TIER
-                else:
-                    if not resources.disk_tier in _SUPPORTED_DISK_TIERS:
-                        logger.warning(
-                            f'Disk tier {resources.disk_tier} is not supported '
-                            'for Nebius. Falling back to default disk tier.')
-                        return _DEFAULT_DISK_TIER
-                    return resources.disk_tier
+            if disk_tier == resources_utils.DiskTier.BEST:
+                return _BEST_DISK_TIER
+            if disk_tier not in _SUPPORTED_DISK_TIERS:
+                logger.warning(
+                    f'Disk tier {disk_tier} is not supported for Nebius. '
+                    'Falling back to default disk tier.')
+                return _DEFAULT_DISK_TIER
+            return disk_tier
 
         resources_vars: Dict[str, Any] = {
             'instance_type': resources.instance_type,
