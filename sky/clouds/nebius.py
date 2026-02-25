@@ -164,9 +164,8 @@ class Nebius(clouds.Cloud):
             cls, instance_type: Optional[str],
             disk_tier: Optional[resources_utils.DiskTier]) -> Tuple[bool, str]:
         del instance_type
-        if disk_tier is None or disk_tier == resources_utils.DiskTier.BEST:
-            return True, ''
-        if disk_tier == resources_utils.DiskTier.ULTRA:
+        if (disk_tier is not None and
+                disk_tier == resources_utils.DiskTier.ULTRA):
             return False, (
                 'Nebius disk_tier=ultra is not supported now. '
                 'Please use disk_tier={low, medium, high, best} instead.')
@@ -346,10 +345,10 @@ class Nebius(clouds.Cloud):
         """Returns a list of feasible resources for the given resources."""
         if resources.instance_type is not None:
             assert resources.is_launchable(), resources
-            ok, _ = Nebius.check_disk_tier(resources.instance_type,
-                                           resources.disk_tier)
+            ok, msg = Nebius.check_disk_tier(resources.instance_type,
+                                             resources.disk_tier)
             if not ok:
-                return resources_utils.FeasibleResources([], [], None)
+                return resources_utils.FeasibleResources([], [], msg)
             return resources_utils.FeasibleResources([resources], [], None)
 
         def _make(instance_list):
