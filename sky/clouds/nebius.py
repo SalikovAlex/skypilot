@@ -164,9 +164,7 @@ class Nebius(clouds.Cloud):
             cls, instance_type: Optional[str],
             disk_tier: Optional[resources_utils.DiskTier]) -> Tuple[bool, str]:
         del instance_type
-        if disk_tier is None or disk_tier == resources_utils.DiskTier.BEST:
-            return True, ''
-        if disk_tier == resources_utils.DiskTier.ULTRA:
+        if disk_tier is not None and disk_tier == resources_utils.DiskTier.ULTRA:
             return False, (
                 'Nebius disk_tier=ultra is not supported now. '
                 'Please use disk_tier={low, medium, high, best} instead.')
