@@ -244,6 +244,18 @@ def launch(cluster_name_on_cloud: str,
         }
         return tier2type[str(disk_tier)]
 
+    # Nebius NETWORK_SSD_IO_M3 (HIGH tier) requires disk sizes to be a
+    # multiple of 93 GiB.
+    actual_disk_size = disk_size
+    if str(disk_tier) == str(resources_utils.DiskTier.HIGH):
+        actual_disk_size = nebius_constants.round_up_disk_size(disk_size)
+        if actual_disk_size != disk_size:
+            logger.warning(
+                f'Nebius HIGH disk tier requires size to be a multiple of '
+                f'{nebius_constants.NEBIUS_DISK_SIZE_STEP_GIB} GiB. '
+                f'Requested {disk_size} GiB, rounding up to '
+                f'{actual_disk_size} GiB.')
+
     service = nebius.compute().DiskServiceClient(nebius.sdk())
     disk = nebius.sync_call(
         service.create(nebius.compute().CreateDiskRequest(
@@ -254,7 +266,7 @@ def launch(cluster_name_on_cloud: str,
             spec=nebius.compute().DiskSpec(
                 source_image_family=nebius.compute().SourceImageFamily(
                     image_family=image_family),
-                size_gibibytes=disk_size,
+                size_gibibytes=actual_disk_size,
                 type=_disk_tier_to_disk_type(disk_tier),
             ))))
     disk_id = disk.resource_id
