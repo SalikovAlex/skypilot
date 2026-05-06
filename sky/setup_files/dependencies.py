@@ -250,7 +250,7 @@ cloud_dependencies: Dict[str, List[str]] = {
     'nebius': [
         # Nebius requires grpcio and protobuf, so we need to include
         # our constraints here.
-        'nebius>=0.3.12',
+        'nebius>=0.3.59',
         GRPC,
         PROTOBUF,
     ] + aws_dependencies,

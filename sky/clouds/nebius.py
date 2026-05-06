@@ -1,6 +1,7 @@
 """ Nebius Cloud. """
 import json
 import os
+import tempfile
 import typing
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
@@ -50,13 +51,22 @@ def nebius_profile_in_aws_cred_and_config() -> bool:
             nebius_profile_exists_in_config)
 
 
+def _write_nebius_temp_credential_file(prefix: str, value: str) -> str:
+    """Materialize effective Nebius config into a temporary uploadable file."""
+    with tempfile.NamedTemporaryFile(prefix=prefix,
+                                     mode='w',
+                                     delete=False,
+                                     encoding='utf-8') as temp_file:
+        temp_file.write(value)
+        temp_file.write('\n')
+        return temp_file.name
+
+
 @registry.CLOUD_REGISTRY.register
 class Nebius(clouds.Cloud):
     """Nebius GPU Cloud"""
     _REPR = 'Nebius'
     _CLOUD_UNSUPPORTED_FEATURES = {
-        clouds.CloudImplementationFeatures.AUTODOWN:
-            ('Autodown not supported. Can\'t delete OS disk.'),
         clouds.CloudImplementationFeatures.CLONE_DISK_FROM_CLUSTER:
             (f'Migrating disk is currently not supported on {_REPR}.'),
         clouds.CloudImplementationFeatures.CUSTOM_NETWORK_TIER:
@@ -481,10 +491,21 @@ class Nebius(clouds.Cloud):
         return (False, hints) if hints else (True, hints)
 
     def get_credential_file_mounts(self) -> Dict[str, str]:
-        credential_file_mounts = {
-            filepath: filepath
-            for filepath in nebius.get_credential_file_paths()
-        }
+        credential_file_mounts = {}
+        tenant_id_path = nebius.tenant_id_path()
+        tenant_id = nebius.get_tenant_id()
+        if tenant_id is not None:
+            # NOTE: We can't guarantee that the file will be deleted eventually,
+            # but it doesn't contain sensitive information and should be cleaned
+            # up by the OS eventually.
+            credential_file_mounts[tenant_id_path] = (
+                _write_nebius_temp_credential_file('nebius-tenant-id-',
+                                                   tenant_id))
+
+        for filepath in nebius.get_credential_file_paths():
+            if filepath == tenant_id_path:
+                continue
+            credential_file_mounts[filepath] = filepath
         if nebius_profile_in_aws_cred_and_config():
             credential_file_mounts['~/.aws/credentials'] = '~/.aws/credentials'
             credential_file_mounts['~/.aws/config'] = '~/.aws/config'
