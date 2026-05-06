@@ -2663,8 +2663,15 @@ class CloudVmRayResourceHandle(backends.backend.ResourceHandle):
         handle._ssh_user = d.get('ssh_user')
         runtime_metadata = d.get('provision_runtime_metadata')
         if runtime_metadata is not None:
+            known = {
+                f.name for f in dataclasses.fields(
+                    provision_common.ProvisionRuntimeMetadata)
+            }
             handle.provision_runtime_metadata = (
-                provision_common.ProvisionRuntimeMetadata(**runtime_metadata))
+                provision_common.ProvisionRuntimeMetadata(
+                    **{k: v
+                       for k, v in runtime_metadata.items()
+                       if k in known}))
         else:
             handle.provision_runtime_metadata = (
                 provision_common.ProvisionRuntimeMetadata())
@@ -2748,8 +2755,15 @@ class CloudVmRayResourceHandle(backends.backend.ResourceHandle):
         # __getstate__). Reconstruct the dataclass here, defaulting if absent.
         runtime_metadata = state.get('provision_runtime_metadata')
         if isinstance(runtime_metadata, dict):
+            known = {
+                f.name for f in dataclasses.fields(
+                    provision_common.ProvisionRuntimeMetadata)
+            }
             state['provision_runtime_metadata'] = (
-                provision_common.ProvisionRuntimeMetadata(**runtime_metadata))
+                provision_common.ProvisionRuntimeMetadata(
+                    **{k: v
+                       for k, v in runtime_metadata.items()
+                       if k in known}))
         elif runtime_metadata is None:
             state['provision_runtime_metadata'] = (
                 provision_common.ProvisionRuntimeMetadata())
@@ -5564,6 +5578,8 @@ class CloudVmRayBackend(backends.Backend['CloudVmRayResourceHandle']):
                      stream_logs: bool = True,
                      hook: Optional[str] = None,
                      hook_timeout: Optional[int] = None) -> None:
+        if not handle.provision_runtime_metadata.has_skylet:
+            return
         # The core.autostop() function should have already checked that the
         # cloud and resources support requested autostop.
         if idle_minutes_to_autostop is not None:
@@ -5654,6 +5670,8 @@ class CloudVmRayBackend(backends.Backend['CloudVmRayResourceHandle']):
             that the cluster is still autostopping when False is returned,
             due to errors like transient network issues.
         """
+        if not handle.provision_runtime_metadata.has_skylet:
+            return False
         if handle.head_ip is None:
             # The head node of the cluster is not UP or in an abnormal state.
             # We cannot check if the cluster is autostopping.
