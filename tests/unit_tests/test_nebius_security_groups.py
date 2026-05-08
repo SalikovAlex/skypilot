@@ -6,6 +6,7 @@ open_ports adds ingress rules idempotently, cleanup_ports deletes the SG
 on teardown with retry-on-dependency, and the legacy-cluster warn path.
 """
 # pylint: disable=line-too-long
+import importlib.util
 from unittest import mock
 
 import pytest
@@ -15,6 +16,17 @@ from sky.provision import common
 from sky.provision.nebius import config as nebius_config
 from sky.provision.nebius import instance as nebius_instance
 from sky.provision.nebius import utils as nebius_utils
+
+# CI's "Unit Tests" job installs only `[kubernetes,aws,gcp,azure]` extras
+# (`.github/workflows/pytest.yml`) — nebius is not in that list. Tests
+# that exercise the real Nebius SDK (proto construction or utils helpers
+# that build SecurityGroup/Rule requests) are gated on the SDK being
+# importable. Tests that fully mock at the helper boundary run regardless.
+_HAS_NEBIUS_SDK = importlib.util.find_spec('nebius') is not None
+nebius_sdk_required = pytest.mark.skipif(
+    not _HAS_NEBIUS_SDK,
+    reason='Nebius SDK not installed in this environment',
+)
 
 
 def _fake_rule(access, protocol, ingress=None, egress=None):
@@ -400,6 +412,7 @@ def test_terminate_skips_sg_delete_when_byo_bool_false():
 # --- add_ingress_tcp_ports (dedup) -----------------------------------------
 
 
+@nebius_sdk_required
 def test_add_ingress_tcp_ports_dedupes_against_existing():
     """Re-running with the same ports must issue zero new rules."""
 
@@ -420,6 +433,7 @@ def test_add_ingress_tcp_ports_dedupes_against_existing():
     mock_create.assert_not_called()
 
 
+@nebius_sdk_required
 def test_add_ingress_tcp_ports_batches_to_eight_per_rule():
 
     vpc = nebius_adaptor.vpc()
@@ -442,6 +456,7 @@ def test_add_ingress_tcp_ports_batches_to_eight_per_rule():
 # --- ensure_default_sg_rules -----------------------------------------------
 
 
+@nebius_sdk_required
 def test_ensure_default_sg_rules_creates_all_when_empty():
     with mock.patch.object(nebius_utils, 'list_security_rules',
                            return_value=[]), \
@@ -452,6 +467,7 @@ def test_ensure_default_sg_rules_creates_all_when_empty():
     assert mock_create.call_count == 4
 
 
+@nebius_sdk_required
 def test_ensure_default_sg_rules_idempotent_when_all_present():
     """Second call with all rules already present must add zero."""
 
@@ -491,6 +507,7 @@ def test_ensure_default_sg_rules_idempotent_when_all_present():
 # --- delete_security_group -------------------------------------------------
 
 
+@nebius_sdk_required
 def test_delete_sg_retries_on_dependency_then_succeeds():
     """First SG-delete attempt fails (VMs still attached), retry succeeds."""
     sg_delete_attempts = {'n': 0}
@@ -516,6 +533,7 @@ def test_delete_sg_retries_on_dependency_then_succeeds():
     assert sg_delete_attempts['n'] == 2  # one retry
 
 
+@nebius_sdk_required
 def test_delete_sg_swallows_not_found():
     """If the SG is already gone, return cleanly."""
 
@@ -532,6 +550,7 @@ def test_delete_sg_swallows_not_found():
         nebius_utils.delete_security_group('sg-gone')
 
 
+@nebius_sdk_required
 def test_delete_sg_logs_warning_on_retry_exhaustion():
     """After max attempts, log warning and return rather than raise."""
 
@@ -553,6 +572,7 @@ def test_delete_sg_logs_warning_on_retry_exhaustion():
     assert any('Failed to delete security group' in m for m in warn_calls)
 
 
+@nebius_sdk_required
 def test_delete_sg_drains_rules_first():
     """Rules must be deleted (and polled to drain) before SG delete."""
     fake_rule = mock.MagicMock()
