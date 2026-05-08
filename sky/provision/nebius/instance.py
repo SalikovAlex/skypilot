@@ -316,7 +316,7 @@ def open_ports(
     provider_config: Optional[Dict[str, Any]] = None,
 ) -> None:
     """See sky/provision/__init__.py"""
-    assert provider_config is not None, ports
+    assert provider_config is not None
     sg_block = provider_config.get('security_group') or {}
     managed = bool(sg_block.get('ManagedBySkyPilot', True))
     if not managed:
