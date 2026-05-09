@@ -150,16 +150,29 @@ def run_instances(region: str, cluster_name: str, cluster_name_on_cloud: str,
                                 'filesystems', []),
                             network_tier=config.node_config.get('network_tier'))
 
+    # When we're creating a brand-new head, launch it synchronously first.
+    # utils.launch calls get_or_create_gpu_cluster for InfiniBand presets —
+    # that get-then-create has a TOCTOU window, so parallel launches racing
+    # to create the same GPU cluster would have all but one fail with
+    # "already exists". Workers in a scale-up don't race because the GPU
+    # cluster already exists from the original head launch.
     try:
-        new_instance_ids = subprocess_utils.run_in_parallel(
-            _launch_one, list(range(to_start_count)))
+        if new_head_idx is not None and to_start_count > 0:
+            new_instance_ids = [_launch_one(0)]
+            new_instance_ids.extend(
+                subprocess_utils.run_in_parallel(_launch_one,
+                                                 list(range(1,
+                                                            to_start_count))))
+        else:
+            new_instance_ids = subprocess_utils.run_in_parallel(
+                _launch_one, list(range(to_start_count)))
     except Exception as e:  # pylint: disable=broad-except
         logger.warning(f'run_instances error: {e}')
         raise
     for instance_id in new_instance_ids:
         logger.info(f'Launched instance {instance_id}.')
     created_instance_ids.extend(new_instance_ids)
-    if head_instance_id is None:
+    if head_instance_id is None and new_instance_ids:
         head_instance_id = new_instance_ids[0]
     assert head_instance_id is not None, 'head_instance_id should not be None'
     return common.ProvisionRecord(provider_name='nebius',
