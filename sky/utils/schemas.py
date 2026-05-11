@@ -1279,7 +1279,8 @@ _LABELS_SCHEMA = {
 _PROPERTY_NAME_OR_CLUSTER_NAME_TO_PROPERTY = {
     'oneOf': [
         {
-            'type': 'string'
+            'type': 'string',
+            'minLength': 1,
         },
         {
             # A list of single-element dict to pretain the
@@ -1293,7 +1294,8 @@ _PROPERTY_NAME_OR_CLUSTER_NAME_TO_PROPERTY = {
             'items': {
                 'type': 'object',
                 'additionalProperties': {
-                    'type': 'string'
+                    'type': 'string',
+                    'minLength': 1,
                 },
                 'maxProperties': 1,
                 'minProperties': 1,
@@ -2063,6 +2065,8 @@ def get_config_schema():
                 'domain': {
                     'type': 'string',
                 },
+                'security_group_name':
+                    (_PROPERTY_NAME_OR_CLUSTER_NAME_TO_PROPERTY),
                 'region_configs': {
                     'type': 'object',
                     'required': [],
